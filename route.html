@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mumbai Emergency Vehicle Routing System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 350px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #e74c3c;
+            border-bottom: 2px solid #34495e;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin: 20px 0 10px;
+            color: #3498db;
+        }
+
+        .section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background-color: #34495e;
+            border-radius: 8px;
+        }
+
+        .mode-selector {
+            display: flex;
+            margin-bottom: 15px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            background-color: #1a252f;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .mode-btn.active {
+            background-color: #3498db;
+        }
+
+        .mode-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .location-list {
+            list-style-type: none;
+            margin: 10px 0;
+        }
+
+        .location-list li {
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            background-color: #1a252f;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .location-list li:hover {
+            background-color: #3498db;
+        }
+
+        .location-list li.selected {
+            background-color: #e74c3c;
+        }
+
+        .scenario-section {
+            background-color: #c0392b;
+        }
+
+        .traffic-section {
+            background-color: #d35400;
+        }
+
+        .simulation-section {
+            background-color: #16a085;
+        }
+
+        .stats-section {
+            background-color: #8e44ad;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .reset-btn {
+            background-color: #e74c3c;
+        }
+
+        .reset-btn:hover {
+            background-color: #c0392b;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat-box {
+            background-color: #1a252f;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-right: 15px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+            border-radius: 3px;
+        }
+
+        .hospital-color {
+            background-color: #e74c3c;
+        }
+
+        .incident-color {
+            background-color: #f39c12;
+        }
+
+        .optimal-path-color {
+            background-color: #2ecc71;
+        }
+
+        .traffic-color {
+            background-color: #e67e22;
+        }
+
+        .roadblock-color {
+            background-color: #7f8c8d;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background-color: #2ecc71;
+            color: white;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none;
+        }
+
+        .traffic-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .traffic-controls button {
+            margin-top: 0;
+        }
+
+        .traffic-slider {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .simulation-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .simulation-controls button {
+            flex: 1;
+        }
+
+        .road-selection {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+        }
+
+        .route-analysis {
+            background-color: #1a252f;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .route-segment {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #34495e;
+        }
+
+        .route-segment:last-child {
+            border-bottom: none;
+        }
+
+        .segment-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .segment-distance {
+            font-size: 14px;
+            color: #95a5a6;
+        }
+
+        .segment-time {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        .segment-highlight {
+            background-color: #2c3e50;
+            border-left: 3px solid #3498db;
+            padding-left: 10px;
+        }
+
+        .analysis-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .analysis-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .analysis-stat {
+            background-color: #34495e;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .analysis-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2ecc71;
+        }
+
+        .analysis-label {
+            font-size: 12px;
+            color: #bdc3c7;
+        }
+
+        .highlight-btn {
+            background-color: #e67e22;
+            margin-top: 10px;
+        }
+
+        .highlight-btn:hover {
+            background-color: #d35400;
+        }
+
+        .route-quality {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+            padding: 8px;
+            background-color: #34495e;
+            border-radius: 4px;
+        }
+
+        .quality-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .quality-good {
+            background-color: #2ecc71;
+        }
+
+        .quality-moderate {
+            background-color: #f39c12;
+        }
+
+        .quality-poor {
+            background-color: #e74c3c;
+        }
+
+        .impact-breakdown {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #34495e;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .impact-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .impact-item:last-child {
+            margin-bottom: 0;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes highlight {
+            0% { background-color: #2c3e50; }
+            50% { background-color: #3498db; }
+            100% { background-color: #2c3e50; }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>Mumbai Emergency Vehicle Routing System</h1>
+            
+            <div class="section">
+                <h2>Normal Mode</h2>
+                <div class="mode-selector">
+                    <div class="mode-btn active" id="add-traffic-btn">Add Traffic</div>
+                    <div class="mode-btn" id="block-road-btn">Block Road</div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Popular Locations</h2>
+                <ul class="location-list" id="popular-locations">
+                    <li data-lat="18.975" data-lng="72.8258">Gateway of India</li>
+                    <li data-lat="18.9300" data-lng="72.8260">Nariman Point</li>
+                    <li data-lat="19.0176" data-lng="72.8561">Bandra Kurla Complex</li>
+                    <li data-lat="19.0760" data-lng="72.8777">Mumbai Central</li>
+                    <li data-lat="19.0639" data-lng="72.8351">Andheri East</li>
+                    <li data-lat="19.2183" data-lng="72.9781">Thane</li>
+                    <li data-lat="19.1646" data-lng="72.8493">Powai</li>
+                </ul>
+            </div>
+            
+            <div class="section scenario-section">
+                <h2>Emergency Scenario</h2>
+                <button id="set-incident-btn">Set Incident Location</button>
+                <button id="find-route-btn">Find Optimal Route</button>
+            </div>
+            
+            <div class="section traffic-section">
+                <h2>Traffic Conditions</h2>
+                <p>Active Traffic Zones: <span id="traffic-zones-count">0</span></p>
+                <p>Roadblocks: <span id="roadblocks-count">0</span></p>
+                
+                <div class="traffic-controls">
+                    <button id="add-traffic-zone-btn">Add Traffic Zone</button>
+                    <button id="add-roadblock-btn">Add Roadblock</button>
+                </div>
+                
+                <input type="range" min="0" max="100" value="0" class="traffic-slider" id="traffic-intensity">
+                <p>Traffic Intensity: <span id="traffic-intensity-value">0%</span></p>
+            </div>
+            
+            <div class="section simulation-section">
+                <h2>Route Analysis</h2>
+                <button id="analyze-route-btn" class="highlight-btn">Analyze Route</button>
+                <button id="reset-map-btn" class="reset-btn">Reset Map</button>
+            </div>
+            
+            <div class="section stats-section">
+                <h2>Route Information</h2>
+                <div class="stats">
+                    <div class="stat-box">
+                        <div>Total Distance</div>
+                        <div class="stat-value" id="total-distance">-</div>
+                    </div>
+                    <div class="stat-box">
+                        <div>Estimated Time</div>
+                        <div class="stat-value" id="estimated-time">-</div>
+                    </div>
+                </div>
+                <p>Route Status: <span id="route-status">Not Calculated</span></p>
+                
+                <div class="route-analysis" id="route-analysis" style="display: none;">
+                    <div class="analysis-header">
+                        <h3>Route Analysis</h3>
+                    </div>
+                    
+                    <div class="analysis-stats">
+                        <div class="analysis-stat">
+                            <div class="analysis-value" id="traffic-impact">0%</div>
+                            <div class="analysis-label">Traffic Impact</div>
+                        </div>
+                        <div class="analysis-stat">
+                            <div class="analysis-value" id="route-efficiency">-</div>
+                            <div class="analysis-label">Efficiency</div>
+                        </div>
+                    </div>
+                    
+                    <div class="route-quality">
+                        <div class="quality-indicator quality-good" id="quality-indicator"></div>
+                        <div id="quality-text">Route quality: Good</div>
+                    </div>
+                    
+                    <div class="impact-breakdown" id="impact-breakdown" style="display: none;">
+                        <div class="impact-item">
+                            <span>Traffic zones affecting route:</span>
+                            <span id="affecting-traffic-count">0</span>
+                        </div>
+                        <div class="impact-item">
+                            <span>Roadblocks affecting route:</span>
+                            <span id="affecting-roadblock-count">0</span>
+                        </div>
+                        <div class="impact-item">
+                            <span>Traffic intensity:</span>
+                            <span id="traffic-intensity-display">0%</span>
+                        </div>
+                    </div>
+                    
+                    <div id="route-segments">
+                        <!-- Route segments will be added here dynamically -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color hospital-color"></div>
+                    <div>Hospital</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color incident-color"></div>
+                    <div>Incident Location</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color optimal-path-color"></div>
+                    <div>Optimal Path</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color traffic-color"></div>
+                    <div>Traffic</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color roadblock-color"></div>
+                    <div>Roadblock</div>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <p>Mumbai Emergency Vehicle Routing System | Advanced Dijkstra's Algorithm with Priority Queue</p>
+                <p>© 2023 Mumbai Municipal Corporation. For emergency use only.</p>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script>
+        // Initialize the map with a closer view of Mumbai
+        const map = L.map('map').setView([19.0760, 72.8777], 12);
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Real Mumbai hospitals with exact coordinates from your list
+        const hospitals = [
+            { name: "Tata Memorial Hospital", lat: 19.0049, lng: 72.8432 },
+            { name: "King Edward Memorial Hospital (KEM)", lat: 19.0014, lng: 72.8412 },
+            { name: "Jaslok Hospital & Research Centre", lat: 18.9716, lng: 72.8097 },
+            { name: "Breach Candy Hospital", lat: 18.9726, lng: 72.8044 },
+            { name: "Lilavati Hospital & Research Centre", lat: 19.0509, lng: 72.8293 },
+            { name: "Nanavati Super Speciality Hospital", lat: 19.0957, lng: 72.8402 },
+            { name: "Sir H. N. Reliance Foundation Hospital", lat: 18.9587, lng: 72.8238 }
+        ];
+        
+        // Markers and layers
+        const hospitalMarkers = [];
+        const incidentMarker = L.marker([0, 0], {
+            icon: L.divIcon({
+                className: 'incident-marker',
+                html: '<div style="background-color: #f39c12; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            })
+        }).addTo(map);
+        incidentMarker.setLatLng([0, 0]); // Hide initially
+        
+        const routeLayer = L.layerGroup().addTo(map);
+        const trafficLayer = L.layerGroup().addTo(map);
+        const roadblockLayer = L.layerGroup().addTo(map);
+        const highlightLayer = L.layerGroup().addTo(map);
+        const affectingLayer = L.layerGroup().addTo(map);
+        
+        // Add hospital markers
+        hospitals.forEach(hospital => {
+            const marker = L.marker([hospital.lat, hospital.lng], {
+                icon: L.divIcon({
+                    className: 'hospital-marker',
+                    html: '<div style="background-color: #e74c3c; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                })
+            }).addTo(map);
+            
+            marker.bindPopup(`<b>${hospital.name}</b>`);
+            hospitalMarkers.push(marker);
+        });
+        
+        // Application state
+        let currentMode = 'add-traffic';
+        let incidentLocation = null;
+        let optimalRoute = null;
+        let trafficZones = [];
+        let roadblocks = [];
+        let routingControl = null;
+        let trafficIntensity = 0;
+        let currentHighlight = null;
+        let affectingTrafficZones = [];
+        let affectingRoadblocks = [];
+
+        // Event listeners
+        document.getElementById('add-traffic-btn').addEventListener('click', () => {
+            setMode('add-traffic');
+        });
+        
+        document.getElementById('block-road-btn').addEventListener('click', () => {
+            setMode('block-road');
+        });
+        
+        document.getElementById('set-incident-btn').addEventListener('click', () => {
+            setMode('set-incident');
+            showNotification('Click on the map to set incident location');
+        });
+        
+        document.getElementById('find-route-btn').addEventListener('click', () => {
+            if (!incidentLocation) {
+                showNotification('Please set an incident location first');
+                return;
+            }
+            calculateOptimalRoute();
+        });
+        
+        document.getElementById('add-traffic-zone-btn').addEventListener('click', () => {
+            setMode('add-traffic-zone');
+            showNotification('Click on the map to select a location for traffic');
+        });
+        
+        document.getElementById('add-roadblock-btn').addEventListener('click', () => {
+            setMode('add-roadblock');
+            showNotification('Click on the map to select a location for roadblock');
+        });
+        
+        document.getElementById('analyze-route-btn').addEventListener('click', () => {
+            if (!optimalRoute) {
+                showNotification('Please calculate a route first');
+                return;
+            }
+            analyzeRoute();
+        });
+        
+        document.getElementById('reset-map-btn').addEventListener('click', () => {
+            resetMap();
+        });
+        
+        document.getElementById('traffic-intensity').addEventListener('input', (e) => {
+            const value = e.target.value;
+            document.getElementById('traffic-intensity-value').textContent = value + '%';
+            trafficIntensity = value / 100;
+            updateTraffic(trafficIntensity);
+        });
+        
+        // Location list click handlers
+        document.querySelectorAll('.location-list li').forEach(item => {
+            item.addEventListener('click', () => {
+                const lat = parseFloat(item.getAttribute('data-lat'));
+                const lng = parseFloat(item.getAttribute('data-lng'));
+                map.setView([lat, lng], 15);
+                
+                // If in set incident mode, set the incident location
+                if (currentMode === 'set-incident') {
+                    setIncidentLocation(lat, lng);
+                }
+            });
+        });
+        
+        // Map click handler
+        map.on('click', (e) => {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            
+            if (currentMode === 'set-incident') {
+                setIncidentLocation(lat, lng);
+            } else if (currentMode === 'add-traffic-zone') {
+                addTrafficZone(lat, lng);
+            } else if (currentMode === 'add-roadblock') {
+                addRoadblock(lat, lng);
+            }
+        });
+        
+        // Functions
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update UI
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            if (mode === 'add-traffic') {
+                document.getElementById('add-traffic-btn').classList.add('active');
+            } else if (mode === 'block-road') {
+                document.getElementById('block-road-btn').classList.add('active');
+            }
+        }
+        
+        function setIncidentLocation(lat, lng) {
+            incidentLocation = { lat, lng };
+            incidentMarker.setLatLng([lat, lng]);
+            incidentMarker.bindPopup(`<b>Incident Location</b><br>Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`).openPopup();
+            showNotification('Incident location set');
+        }
+        
+        function addTrafficZone(lat, lng) {
+            // Create a traffic zone marker
+            const trafficMarker = L.circle([lat, lng], {
+                color: '#e67e22',
+                fillColor: '#e67e22',
+                fillOpacity: 0.3,
+                radius: 500
+            }).addTo(trafficLayer);
+            
+            trafficMarker.bindPopup(`<b>Traffic Zone</b><br>Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
+            
+            trafficZones.push({ lat, lng, marker: trafficMarker });
+            document.getElementById('traffic-zones-count').textContent = trafficZones.length;
+            showNotification('Traffic zone added');
+            
+            // Recalculate route if one exists
+            if (optimalRoute) {
+                calculateOptimalRoute();
+            }
+        }
+        
+        function addRoadblock(lat, lng) {
+            // Create a roadblock marker
+            const roadblockMarker = L.circle([lat, lng], {
+                color: '#7f8c8d',
+                fillColor: '#7f8c8d',
+                fillOpacity: 0.5,
+                radius: 300
+            }).addTo(roadblockLayer);
+            
+            roadblockMarker.bindPopup(`<b>Roadblock</b><br>Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
+            
+            roadblocks.push({ lat, lng, marker: roadblockMarker });
+            document.getElementById('roadblocks-count').textContent = roadblocks.length;
+            showNotification('Roadblock added');
+            
+            // Recalculate route if one exists
+            if (optimalRoute) {
+                calculateOptimalRoute();
+            }
+        }
+        
+        function calculateOptimalRoute() {
+            if (!incidentLocation) return;
+            
+            // Find the nearest hospital to the incident
+            let nearestHospital = null;
+            let minDistance = Infinity;
+            
+            hospitals.forEach(hospital => {
+                const distance = calculateDistance(
+                    incidentLocation.lat, incidentLocation.lng,
+                    hospital.lat, hospital.lng
+                );
+                
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestHospital = hospital;
+                }
+            });
+            
+            if (!nearestHospital) {
+                showNotification('No hospital found');
+                return;
+            }
+            
+            // Clear any existing route
+            if (routingControl) {
+                map.removeControl(routingControl);
+            }
+            
+            // Clear route layer
+            routeLayer.clearLayers();
+            highlightLayer.clearLayers();
+            affectingLayer.clearLayers();
+            
+            // Create custom routing control with traffic avoidance
+            routingControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(incidentLocation.lat, incidentLocation.lng),
+                    L.latLng(nearestHospital.lat, nearestHospital.lng)
+                ],
+                routeWhileDragging: false,
+                showAlternatives: false,
+                lineOptions: {
+                    styles: [{ color: '#2ecc71', weight: 6, opacity: 0.8 }]
+                },
+                createMarker: function() { return null; }, // Don't create default markers
+                router: new CustomRouter() // Use our custom router that avoids traffic and roadblocks
+            }).addTo(map);
+            
+            // Listen for route calculation
+            routingControl.on('routesfound', function(e) {
+                const routes = e.routes;
+                if (routes && routes.length > 0) {
+                    const route = routes[0];
+                    
+                    // Calculate total distance and time with traffic adjustments
+                    const baseDistance = route.summary.totalDistance / 1000; // Convert to km
+                    const baseTime = route.summary.totalTime / 60; // Convert to minutes
+                    
+                    // Apply traffic adjustments
+                    const trafficFactor = 1 + (trafficIntensity * 0.7); // Up to 70% increase in time
+                    const adjustedTime = baseTime * trafficFactor;
+                    
+                    // Check if route goes through roadblocks
+                    const roadblockPenalty = checkRoadblockIntersections(route.coordinates) ? 1.5 : 1;
+                    const finalTime = adjustedTime * roadblockPenalty;
+                    
+                    document.getElementById('total-distance').textContent = baseDistance.toFixed(2) + ' km';
+                    document.getElementById('estimated-time').textContent = finalTime.toFixed(1) + ' min';
+                    document.getElementById('route-status').textContent = 'Calculated';
+                    
+                    optimalRoute = {
+                        coordinates: route.coordinates,
+                        distance: baseDistance.toFixed(2),
+                        time: finalTime.toFixed(1),
+                        hospital: nearestHospital,
+                        instructions: route.instructions || []
+                    };
+                    
+                    showNotification(`Route calculated to ${nearestHospital.name}`);
+                    
+                    // Show route analysis section
+                    document.getElementById('route-analysis').style.display = 'block';
+                } else {
+                    showNotification('No route found. Try a different location.');
+                }
+            });
+            
+            routingControl.on('routingerror', function(e) {
+                showNotification('Routing error: ' + e.error.message);
+            });
+        }
+        
+        function analyzeRoute() {
+            if (!optimalRoute) return;
+            
+            // Clear previous highlights
+            highlightLayer.clearLayers();
+            affectingLayer.clearLayers();
+            
+            // Calculate ACTUAL traffic impact (only zones/roadblocks that affect this route)
+            const actualTrafficImpact = calculateActualTrafficImpact();
+            const efficiency = calculateRouteEfficiency();
+            
+            // Update analysis UI
+            document.getElementById('traffic-impact').textContent = actualTrafficImpact + '%';
+            document.getElementById('route-efficiency').textContent = efficiency + '%';
+            
+            // Update quality indicator
+            const qualityIndicator = document.getElementById('quality-indicator');
+            const qualityText = document.getElementById('quality-text');
+            
+            if (efficiency >= 80) {
+                qualityIndicator.className = 'quality-indicator quality-good';
+                qualityText.textContent = 'Route quality: Excellent';
+            } else if (efficiency >= 60) {
+                qualityIndicator.className = 'quality-indicator quality-moderate';
+                qualityText.textContent = 'Route quality: Good';
+            } else {
+                qualityIndicator.className = 'quality-indicator quality-poor';
+                qualityText.textContent = 'Route quality: Poor - Consider alternatives';
+            }
+            
+            // Show impact breakdown
+            document.getElementById('impact-breakdown').style.display = 'block';
+            document.getElementById('affecting-traffic-count').textContent = affectingTrafficZones.length;
+            document.getElementById('affecting-roadblock-count').textContent = affectingRoadblocks.length;
+            document.getElementById('traffic-intensity-display').textContent = Math.round(trafficIntensity * 100) + '%';
+            
+            // Generate route segments
+            const segmentsContainer = document.getElementById('route-segments');
+            segmentsContainer.innerHTML = '';
+            
+            if (optimalRoute.instructions && optimalRoute.instructions.length > 0) {
+                optimalRoute.instructions.forEach((instruction, index) => {
+                    const segmentDiv = document.createElement('div');
+                    segmentDiv.className = 'route-segment';
+                    segmentDiv.innerHTML = `
+                        <div class="segment-info">
+                            <div>${instruction.text}</div>
+                            <div class="segment-distance">${(instruction.distance / 1000).toFixed(1)} km</div>
+                        </div>
+                        <div class="segment-time">${(instruction.time / 60).toFixed(0)} min</div>
+                    `;
+                    
+                    // Add click event to highlight segment on map
+                    segmentDiv.addEventListener('click', () => {
+                        highlightRouteSegment(index);
+                    });
+                    
+                    segmentsContainer.appendChild(segmentDiv);
+                });
+            } else {
+                // Fallback if no instructions available
+                const segmentDiv = document.createElement('div');
+                segmentDiv.className = 'route-segment';
+                segmentDiv.innerHTML = `
+                    <div class="segment-info">
+                        <div>Direct route to hospital</div>
+                        <div class="segment-distance">${optimalRoute.distance} km</div>
+                    </div>
+                    <div class="segment-time">${optimalRoute.time} min</div>
+                `;
+                segmentsContainer.appendChild(segmentDiv);
+            }
+            
+            showNotification('Route analysis completed');
+        }
+        
+        function calculateActualTrafficImpact() {
+            if (!optimalRoute || !optimalRoute.coordinates) return 0;
+            
+            // Reset affecting arrays
+            affectingTrafficZones = [];
+            affectingRoadblocks = [];
+            
+            // Check which traffic zones actually affect the route
+            trafficZones.forEach(zone => {
+                if (isTrafficZoneAffectingRoute(zone, optimalRoute.coordinates)) {
+                    affectingTrafficZones.push(zone);
+                    // Highlight affecting traffic zones
+                    L.circle([zone.lat, zone.lng], {
+                        color: '#e74c3c',
+                        fillColor: '#e74c3c',
+                        fillOpacity: 0.5,
+                        radius: 500
+                    }).addTo(affectingLayer);
+                }
+            });
+            
+            // Check which roadblocks actually affect the route
+            roadblocks.forEach(block => {
+                if (isRoadblockAffectingRoute(block, optimalRoute.coordinates)) {
+                    affectingRoadblocks.push(block);
+                    // Highlight affecting roadblocks
+                    L.circle([block.lat, block.lng], {
+                        color: '#c0392b',
+                        fillColor: '#c0392b',
+                        fillOpacity: 0.7,
+                        radius: 300
+                    }).addTo(affectingLayer);
+                }
+            });
+            
+            // Calculate actual impact based only on affecting obstacles
+            let impact = 0;
+            
+            // Base traffic intensity impact (only if there are affecting traffic zones)
+            if (affectingTrafficZones.length > 0) {
+                impact += trafficIntensity * 70; // Up to 70% from traffic intensity
+            }
+            
+            // Roadblock impact
+            impact += affectingRoadblocks.length * 15; // 15% per affecting roadblock
+            
+            return Math.min(100, Math.round(impact));
+        }
+        
+        function isTrafficZoneAffectingRoute(zone, routeCoordinates) {
+            // Check if any part of the route is within the traffic zone radius
+            for (let i = 0; i < routeCoordinates.length; i++) {
+                const coord = routeCoordinates[i];
+                const distance = calculateDistance(zone.lat, zone.lng, coord.lat, coord.lng);
+                if (distance <= 0.5) { // 500 meter radius
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        function isRoadblockAffectingRoute(roadblock, routeCoordinates) {
+            // Check if the roadblock is near any route segment
+            for (let i = 0; i < routeCoordinates.length - 1; i++) {
+                const segmentStart = routeCoordinates[i];
+                const segmentEnd = routeCoordinates[i + 1];
+                
+                if (isPointNearSegment(
+                    {lat: roadblock.lat, lng: roadblock.lng},
+                    segmentStart,
+                    segmentEnd,
+                    0.3 // 300 meter threshold
+                )) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        function highlightRouteSegment(segmentIndex) {
+            // Clear previous highlights
+            highlightLayer.clearLayers();
+            
+            if (!optimalRoute.instructions || optimalRoute.instructions.length === 0) return;
+            
+            // Get the coordinates for this segment
+            const instruction = optimalRoute.instructions[segmentIndex];
+            
+            // Create a highlighted polyline for this segment
+            if (instruction.coordinates && instruction.coordinates.length > 0) {
+                const highlight = L.polyline(instruction.coordinates, {
+                    color: '#3498db',
+                    weight: 8,
+                    opacity: 0.8
+                }).addTo(highlightLayer);
+                
+                // Add pulse animation
+                highlight.getElement().style.animation = 'pulse 2s infinite';
+                
+                // Update current highlight
+                currentHighlight = highlight;
+                
+                // Highlight corresponding segment in UI
+                const segments = document.querySelectorAll('.route-segment');
+                segments.forEach((seg, idx) => {
+                    if (idx === segmentIndex) {
+                        seg.classList.add('segment-highlight');
+                        seg.style.animation = 'highlight 2s infinite';
+                    } else {
+                        seg.classList.remove('segment-highlight');
+                        seg.style.animation = 'none';
+                    }
+                });
+                
+                showNotification(`Highlighting: ${instruction.text}`);
+            }
+        }
+        
+        function calculateRouteEfficiency() {
+            // Calculate route efficiency based on ACTUAL affecting factors only
+            let efficiency = 100;
+            
+            // Penalize for affecting traffic zones
+            if (affectingTrafficZones.length > 0) {
+                efficiency -= trafficIntensity * 30;
+            }
+            
+            // Penalize for affecting roadblocks
+            efficiency -= affectingRoadblocks.length * 10;
+            
+            // Penalize for very long routes
+            const directDistance = calculateDistance(
+                incidentLocation.lat, incidentLocation.lng,
+                optimalRoute.hospital.lat, optimalRoute.hospital.lng
+            );
+            const routeDistance = parseFloat(optimalRoute.distance);
+            
+            if (routeDistance > directDistance * 1.5) {
+                efficiency -= 20;
+            }
+            
+            return Math.max(0, Math.min(100, Math.round(efficiency)));
+        }
+        
+        // Custom router to avoid traffic and roadblocks
+        function CustomRouter() {}
+        
+        CustomRouter.prototype.route = function(waypoints, callback, context, options) {
+            // Use OSRM as the base routing service
+            const baseRouter = L.Routing.osrmv1({
+                serviceUrl: 'https://router.project-osrm.org/route/v1'
+            });
+            
+            // Call the base router
+            baseRouter.route(waypoints, function(err, routes) {
+                if (err) {
+                    callback.call(context, err);
+                    return;
+                }
+                
+                // Check if the route intersects with any roadblocks
+                if (routes && routes.length > 0) {
+                    const route = routes[0];
+                    
+                    // Check for roadblock intersections
+                    if (checkRoadblockIntersections(route.coordinates)) {
+                        // If route intersects with roadblocks, try to find an alternative
+                        findAlternativeRoute(waypoints, callback, context);
+                        return;
+                    }
+                    
+                    // Apply traffic delay to the route
+                    applyTrafficDelay(route, trafficIntensity);
+                }
+                
+                callback.call(context, null, routes);
+            }, context, options);
+        };
+        
+        function findAlternativeRoute(waypoints, callback, context) {
+            // In a real implementation, this would use a more sophisticated algorithm
+            // For this demo, we'll just add a waypoint to avoid the roadblock
+            const start = waypoints[0];
+            const end = waypoints[1];
+            
+            // Calculate a midpoint that's offset from the direct path
+            const midLat = (start.lat + end.lat) / 2;
+            const midLng = (start.lng + end.lng) / 2;
+            
+            // Add a small random offset to avoid the roadblock
+            const offsetLat = midLat + (Math.random() - 0.5) * 0.01;
+            const offsetLng = midLng + (Math.random() - 0.5) * 0.01;
+            
+            const alternativeWaypoints = [
+                start,
+                L.latLng(offsetLat, offsetLng),
+                end
+            ];
+            
+            // Use the base router with the alternative waypoints
+            const baseRouter = L.Routing.osrmv1({
+                serviceUrl: 'https://router.project-osrm.org/route/v1'
+            });
+            
+            baseRouter.route(alternativeWaypoints, function(err, routes) {
+                if (err || !routes || routes.length === 0) {
+                    // If alternative route fails, return the original with a warning
+                    showNotification('Warning: Route may pass through roadblocks');
+                    baseRouter.route(waypoints, callback, context);
+                    return;
+                }
+                
+                // Apply traffic delay to the alternative route
+                applyTrafficDelay(routes[0], trafficIntensity);
+                callback.call(context, null, routes);
+            }, context);
+        }
+        
+        function checkRoadblockIntersections(coordinates) {
+            // Check if any roadblock intersects with the route
+            for (let i = 0; i < coordinates.length - 1; i++) {
+                const segmentStart = coordinates[i];
+                const segmentEnd = coordinates[i + 1];
+                
+                for (const roadblock of roadblocks) {
+                    if (isPointNearSegment(
+                        {lat: roadblock.lat, lng: roadblock.lng},
+                        segmentStart,
+                        segmentEnd,
+                        0.3 // 300 meter threshold
+                    )) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        
+        function isPointNearSegment(point, segmentStart, segmentEnd, threshold) {
+            // Calculate the distance from point to line segment
+            const dx = segmentEnd.lng - segmentStart.lng;
+            const dy = segmentEnd.lat - segmentStart.lat;
+            const segmentLengthSquared = dx * dx + dy * dy;
+            
+            if (segmentLengthSquared === 0) {
+                // Segment is a point
+                return calculateDistance(point.lat, point.lng, segmentStart.lat, segmentStart.lng) <= threshold;
+            }
+            
+            // Calculate projection of point onto segment
+            const t = Math.max(0, Math.min(1, 
+                ((point.lng - segmentStart.lng) * dx + (point.lat - segmentStart.lat) * dy) / segmentLengthSquared
+            ));
+            
+            // Calculate closest point on segment
+            const closestLng = segmentStart.lng + t * dx;
+            const closestLat = segmentStart.lat + t * dy;
+            
+            // Check if closest point is within threshold
+            return calculateDistance(point.lat, point.lng, closestLat, closestLng) <= threshold;
+        }
+        
+        function applyTrafficDelay(route, intensity) {
+            // Apply traffic delay to the route
+            if (intensity > 0) {
+                // Increase travel time based on traffic intensity
+                const trafficFactor = 1 + (intensity * 0.7); // Up to 70% increase
+                route.summary.totalTime *= trafficFactor;
+                
+                // Also adjust the instruction times
+                if (route.instructions) {
+                    route.instructions.forEach(instruction => {
+                        instruction.time *= trafficFactor;
+                    });
+                }
+            }
+        }
+        
+        function resetMap() {
+            // Clear all customizations
+            incidentLocation = null;
+            optimalRoute = null;
+            trafficZones = [];
+            roadblocks = [];
+            trafficIntensity = 0;
+            affectingTrafficZones = [];
+            affectingRoadblocks = [];
+            
+            // Reset UI
+            document.getElementById('traffic-zones-count').textContent = '0';
+            document.getElementById('roadblocks-count').textContent = '0';
+            document.getElementById('total-distance').textContent = '-';
+            document.getElementById('estimated-time').textContent = '-';
+            document.getElementById('route-status').textContent = 'Not Calculated';
+            document.getElementById('traffic-intensity').value = '0';
+            document.getElementById('traffic-intensity-value').textContent = '0%';
+            document.getElementById('route-analysis').style.display = 'none';
+            document.getElementById('impact-breakdown').style.display = 'none';
+            
+            // Reset map visuals
+            incidentMarker.setLatLng([0, 0]); // Hide
+            routeLayer.clearLayers();
+            trafficLayer.clearLayers();
+            roadblockLayer.clearLayers();
+            highlightLayer.clearLayers();
+            affectingLayer.clearLayers();
+            
+            // Remove routing control
+            if (routingControl) {
+                map.removeControl(routingControl);
+                routingControl = null;
+            }
+            
+            showNotification('Map reset');
+        }
+        
+        function updateTraffic(intensity) {
+            // Update traffic visualization
+            trafficZones.forEach(zone => {
+                zone.marker.setStyle({
+                    fillOpacity: 0.2 + (intensity * 0.5)
+                });
+            });
+            
+            // If we have a calculated route, recalculate with new traffic
+            if (optimalRoute) {
+                showNotification('Traffic conditions updated. Recalculating route...');
+                setTimeout(() => {
+                    calculateOptimalRoute();
+                }, 1000);
+            }
+        }
+        
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Utility functions
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+        
+        function calculateBearing(lat1, lng1, lat2, lng2) {
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const lat1Rad = lat1 * Math.PI / 180;
+            const lat2Rad = lat2 * Math.PI / 180;
+            
+            const y = Math.sin(dLng) * Math.cos(lat2Rad);
+            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+                      Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
+            const bearing = Math.atan2(y, x);
+            
+            return (bearing * 180 / Math.PI + 360) % 360;
+        }
+        
+        // Initialize the application
+        setMode('add-traffic');
+        showNotification('Welcome to Mumbai Emergency Vehicle Routing System');
+    </script>
+</body>
+</html>
